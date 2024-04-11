@@ -2,11 +2,18 @@ module fifo_loader(
     input ext_clk,
     input ti_clk,
     input rst,
-    input [15:0] par [7:0],
+    input [7:0] serial_in,
     input fifo_ren,
     output [15:0] pipe_out,
     output fifo_full,
 );
+    reg [15:0] par [7:0];
+    generate
+        genvar i;
+        for (i = 0; i < 8; i = i + 1) begin
+            serial_to_par(.clk(ti_clk), .serial(serial_in[i]), .par(par[i]));
+        end
+    endgenerate
     wire [15:0] fifo_din, fifo_dout;
     wire fifo_wen, empty;
     reg [3:0] bit_cnt;
