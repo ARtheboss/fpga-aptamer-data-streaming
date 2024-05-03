@@ -44,47 +44,25 @@ int main() {
     dev->UpdateWireIns();
     dev->SetWireInValue(0x10, 0x00, 0x01);
     dev->UpdateWireIns();
+    
+    for (i = 0; i < sizeof(dataout); i++) {
+        // Load outgoing data buffer.
+    }
     */
 
-    vector<vector<uint16_t>> data(8, vector<uint16_t>());
-
-    vector<uint16_t> raw;
-    
-   unsigned char data_in[512];
-
-   bool expecting_index = true;
-    
-    while (raw.size() < 1e6) {
-        // Read to buffer from PipeOut endpoint with address 0xA0
+    unsigned char data_in[512];
+    while (true) {
         written = dev->ReadFromPipeOut(0xA0, sizeof(data_in), data_in);
+        uint16_t first = (data_in[2+1] << 8) + data_in[2];
+        uint16_t last = (data_in[sizeof(data_in)-2+1] << 8) + data_in[sizeof(data_in)-2];
+        cout << first << " " << last << endl;
+        /*
         for (int i = 0; i < sizeof(data_in); i += 2) {
             uint16_t v = (data_in[i+1] << 8) + data_in[i];
-            if (expecting_index && v == 0) continue;
-            raw.push_back(v);
-            expecting_index = !expecting_index;
+            printf("%d: %d, ", i, v);
         }
-        //printf("%d: 0x%x%x\n", written, datain[1], datain[0]);*/
-    }
-    cout << raw.size() << endl;
-    uint16_t index = 0;
-    for(int i = 0; i < raw.size(); i++){
-        if (i % 2) {
-            if (index < 1 || index > 8) {
-                printf("Invalid index %d at data %d\n", index, i);
-                continue;
-            }
-            data[index-1].push_back(raw[i]);
-        } else {
-            index = raw[i];
-        }
-    }
-    for (int i = 0; i < 8; i++) {
-	    printf("Channel %d had %d values before terminating\n", i+1, data[i].size());
-    }
-    for (int c = 0; c < 8; c++) {
-        for(int i = 1; i < data[c].size(); i++){
-            if (data[c][i] != data[c][i-1] + 1) printf("Invalid data found for channel %d, index %d: %d, should be %d\n", c, i, data[c][i], data[c][i-1] + 1);
-        }
+        cout << endl;
+        */
     }
     return 0;
 
