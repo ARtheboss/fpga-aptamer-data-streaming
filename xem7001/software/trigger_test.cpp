@@ -35,59 +35,41 @@ int main() {
 	}
     cout << "dev gotten" << endl;
 
-    //unsigned char dataout[128];
-    int i;
     long written;
     
-    error = dev->ConfigureFPGA("640kHz.bit");
-    // It’s a good idea to check for errors here!
+    error = dev->ConfigureFPGA("640kHz2.bit");
 
-    cout << error << endl;
-    
-    /*
-    // Send brief reset signal to initialize the FIFO.
-    dev->SetWireInValue(0x10, 0xff, 0x01);
-    dev->UpdateWireIns();
-    dev->SetWireInValue(0x10, 0x00, 0x01);
-    dev->UpdateWireIns();
-    */
+    cout << "Error code: " + error << endl;
+
+    bool ready = false;
+    while (!ready) {
+        dev->UpdateTriggerOuts();
+        ready = dev->IsTriggered(0x6a, (short)1);
+    }
 
     vector<vector<uint16_t>> data(8, vector<uint16_t>());
-
-    uint16_t raw[1010000];
     
-   unsigned char data_in[4096];
-
-   bool expecting_index = true;
+    unsigned char data_in[320000];
     
-    int data_count = 0;
-    while (data_count < 1e6) {
-        // Read to buffer from PipeOut endpoint with address 0xA0
-        written = dev->ReadFromPipeOut(0xA0, sizeof(data_in), data_in);
-        for (int i = 0; i < sizeof(data_in); i += 2) {
-            uint16_t v = (data_in[i+1] << 8) + data_in[i];
-            if (expecting_index && v == 0) continue;
-            raw[data_count] = v;
-            data_count++;
-            expecting_index = !expecting_index;
-        }
-        //printf("%d: 0x%x%x\n", written, datain[1], datain[0]);*/
-    }
-    cout << data_count << endl;
+    cout << "Reading Data" << endl;
+    written = dev->ReadFromPipeOut(0xA0, sizeof(data_in), data_in);
+
     uint16_t index = 0;
     bool expecting_channel = true;
     int error_count = 0;
-    for(int i = 0; i < data_count; i++){
+    for(int i = 0; i < sizeof(data_in); i += 2){
+        uint16_t v = (data_in[i+1] << 8) + data_in[i];
+        cout << v << endl;
         if (!expecting_channel) {
-            data[index-1].push_back(raw[i]);
+            data[index-1].push_back(v);
         } else {
-            if (raw[i] < 1 || raw[i] > 8) {
+            if (v < 1 || v > 8) {
                 // printf("Invalid channel %d at index %d\n", index, i);
                 // showSurroundings(raw, i);
-                error_count += 1;
+                error_count += (v != 0);
                 continue;
             }
-            index = raw[i];
+            index = v;
         }
         expecting_channel = !expecting_channel;
     }

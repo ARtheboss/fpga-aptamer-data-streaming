@@ -33,7 +33,7 @@ int main() {
     int i;
     long written;
     
-    error = dev->ConfigureFPGA("toplevel.bit");
+    error = dev->ConfigureFPGA("640kHz.bit");
     // It’s a good idea to check for errors here!
 
     cout << error << endl;
@@ -50,12 +50,12 @@ int main() {
     }
     */
 
-    unsigned char data_in[512];
+    unsigned char data_in[2048];
     while (true) {
         written = dev->ReadFromPipeOut(0xA0, sizeof(data_in), data_in);
         uint16_t first = (data_in[2+1] << 8) + data_in[2];
         uint16_t last = (data_in[sizeof(data_in)-2+1] << 8) + data_in[sizeof(data_in)-2];
-        cout << first << " " << last << endl;
+        //cout << first << " " << last << endl;
         /*
         for (int i = 0; i < sizeof(data_in); i += 2) {
             uint16_t v = (data_in[i+1] << 8) + data_in[i];

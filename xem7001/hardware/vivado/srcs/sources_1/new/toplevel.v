@@ -17,13 +17,9 @@ module toplevel(
     output [7:0] led,
     output ext_clk
     );
-    
-    assign hi_muxsel = 1'b0;
-    
-    assign led[0] = 0;
+
     assign led[1] = button[0];
     
-    // wire ext_clk; // fake ext_clk
     fake_ext_clk #(.CLK_IN_FREQ(`CLK1_FREQ), .CLK_OUT_FREQ(`TARGET_CLK_FREQ)) fec(.clk_in(clk1), .rst(~button[0]), .clk_out(ext_clk));
     
     wire [7:0] serial_fake;
@@ -39,11 +35,9 @@ module toplevel(
     wire ti_clk;
     wire [16:0] ok2;
     wire [30:0] ok1;
-    wire [16:0] ok2x;
-    
-    okWireOR #(.N(1)) wireOR (ok2, ok2x);
     
     //Host interfaces directly with FPGA pins
+    assign hi_muxsel = 1'b0;
     okHost okHI( 
         .hi_in(hi_in),
         .hi_out(hi_out),
@@ -54,30 +48,16 @@ module toplevel(
         .ok2(ok2)
     );
 
-    wire fifo_read;
-    wire [15:0] data_out;
-    wire toggle, fifo_full;
-
-    fifo_loader fl(
+    wire fifo_full;
+    pc_loader pc(
+        .ok1(ok1),
         .ext_clk(ext_clk),
         .ti_clk(ti_clk),
-        .rst(!button[0]),
+        .en(button[0]),
         .serial_in(serial_fake),
-        .fifo_ren(fifo_read),
-        .pipe_out(data_out),
-        .fifo_full(fifo_full),
-        .toggle(led[2])
+        .ok2(ok2),
+        .fifo_full(fifo_full)
     );
+
     assign led[3] = ~fifo_full;
-        
-    // FrontPanel module instantiations
-    
-    okPipeOut pipeA0(
-        .ok1(ok1),
-        .ok2(ok2x),
-        .ep_addr(8'hA0),
-        .ep_read(fifo_read),
-        .ep_datain(data_out)
-    );
-    assign led[7:4] = data_out[3:0];
 endmodule

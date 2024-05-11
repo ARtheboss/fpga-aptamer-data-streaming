@@ -1,1 +1,3 @@
 g++ main.cpp -L./ -lokFrontPanel -o main
+
+g++ main2.cpp -L./ -lokFrontPanel -o main2
