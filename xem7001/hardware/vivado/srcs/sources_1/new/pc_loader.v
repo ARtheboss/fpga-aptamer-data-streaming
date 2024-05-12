@@ -3,13 +3,16 @@ module pc_loader(
     input wire [30:0] ok1,
     input wire ext_clk,
     input wire ti_clk,
+    input wire clk1,
     input wire en,
     input wire [7:0] serial_in,
     output wire fifo_full,
-    output wire [16:0] ok2
+    output wire [16:0] ok2,
+    output wire data_out_valid
     );
+    
+    wire fifo_ren;
 
-    wire fifo_read;
     wire [15:0] data_out;
 
     wire [17*2-1:0] ok2x;
@@ -19,7 +22,7 @@ module pc_loader(
         .ok1(ok1),
         .ok2(ok2x[16:0]),
         .ep_addr(8'hA0),
-        .ep_read(fifo_read),
+        .ep_read(fifo_ren),
         .ep_datain(data_out)
     );
 
@@ -39,10 +42,12 @@ module pc_loader(
     fifo_loader fl(
         .ext_clk(ext_clk),
         .ti_clk(ti_clk),
+        .clk1(clk1),
         .en(en),
         .serial_in(serial_in),
-        .fifo_ren(fifo_read),
+        .fifo_ren(fifo_ren),
         .pipe_out(data_out),
-        .fifo_full(fifo_full)
+        .fifo_full(fifo_full),
+        .data_out_valid(data_out_valid)
     );
 endmodule

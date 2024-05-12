@@ -27,7 +27,7 @@ module toplevel(
         genvar i;
         for (i = 0; i < 8; i = i + 1) begin
             // assign serial_fake[i] = 1;
-            serial_counter sc(.clk(ext_clk), .rst(!button[0]), .out(serial_fake[i]));
+            serial_counter #(.START(0)) sc(.clk(ext_clk), .rst(!button[0]), .out(serial_fake[i]));
             // prbs15 #(.seed(i+1)) fake_data (.clk(ext_clk), .rst(!button[0]), .bs(serial_fake[i]));
         end
     endgenerate
@@ -48,16 +48,19 @@ module toplevel(
         .ok2(ok2)
     );
 
-    wire fifo_full;
+    wire fifo_full, data_out_valid;
     pc_loader pc(
         .ok1(ok1),
         .ext_clk(ext_clk),
         .ti_clk(ti_clk),
+        .clk1(clk1),
         .en(button[0]),
         .serial_in(serial_fake),
         .ok2(ok2),
-        .fifo_full(fifo_full)
+        .fifo_full(fifo_full),
+        .data_out_valid(data_out_valid)
     );
 
     assign led[3] = ~fifo_full;
+    assign led[7] = ~data_out_valid;
 endmodule

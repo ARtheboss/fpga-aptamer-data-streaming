@@ -8,6 +8,6 @@ module serial_to_par(
         par = {serial, par_last[15:1]};
     end
     always @(posedge clk) begin
-        par_last = par;
+        par_last <= par;
     end
 endmodule

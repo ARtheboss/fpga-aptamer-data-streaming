@@ -5,6 +5,7 @@ module serial_counter(
     input wire rst,
     output wire out
     );
+    parameter START = 16'd0;
     reg [3:0] bit_counter, bit_counter_n;
     reg [15:0] value, value_n;
     always @(*) begin
@@ -12,7 +13,7 @@ module serial_counter(
         value_n = (bit_counter == 4'd15) ? value + 1 : value;
         if (rst) begin
             bit_counter_n = 4'd0;
-            value_n = 16'd1;
+            value_n = START;
         end
     end
     always @(posedge clk) begin

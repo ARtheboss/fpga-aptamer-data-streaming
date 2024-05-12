@@ -1,17 +1,25 @@
 `timescale 1ns / 1ps
 
 module fifo_loader(
+    input wire clk1,
     input wire ext_clk,
     input wire ti_clk,
     input wire en,
     input wire [7:0] serial_in,
     input wire fifo_ren,
     output reg [15:0] pipe_out,
-    output wire fifo_full
+    output wire fifo_full,
+    output wire data_out_valid
     );
 
     wire rst;
     assign rst = ~en;
+    
+    reg rst_negedge, rst_last;
+    always @(posedge clk1) begin
+        rst_last <= rst;
+        rst_negedge = !rst & rst_last;
+    end
 
     // generate parallel signals from serial
     wire [15:0] par [7:0];
@@ -30,25 +38,19 @@ module fifo_loader(
         if (rst) bit_cnt <= 0;
         else bit_cnt <= bit_cnt + 1;
     end
-    reg toggle;
-    always @(posedge ti_clk) begin
-        if (rst || bit_cnt < 4'd15) toggle <= 1;
-        else toggle <= ~toggle;
+    reg [3:0] word_cnt;
+    always @(posedge clk1) begin
+        if (rst || bit_cnt < 4'd15) word_cnt <= 0;
+        else if (word_cnt >= 4'd9) word_cnt <= word_cnt;
+        else word_cnt <= word_cnt + 1;
     end
-    reg [3:0] channel_cnt;
-    always @(posedge ti_clk) begin
-        if (rst || bit_cnt < 4'd15) channel_cnt <= 0;
-        else begin
-            if (channel_cnt > 4'd8 || ~toggle) channel_cnt <= channel_cnt;
-            else channel_cnt <= channel_cnt + 1;
-        end
-    end
-    assign fifo_din = (toggle) ? par[channel_cnt[2:0]] : {8'd0, channel_cnt};
-    assign fifo_wen = (4'd1 <= channel_cnt && channel_cnt <= 4'd8);
+    assign fifo_din = (word_cnt == 4'd0) ? 16'hfffe : par[word_cnt - 1];
+    assign fifo_wen = bit_cnt == 4'd15 && word_cnt < 4'd9;
 
     fifo_generator_0 fifo(
-        .clk(ti_clk),
-        .srst(rst),
+        .wr_clk(clk1),
+        .rd_clk(ti_clk),
+        .rst(rst),
         .din(fifo_din),
         .wr_en(fifo_wen),
         .rd_en(fifo_ren & !empty),
@@ -60,9 +62,10 @@ module fifo_loader(
     always @(posedge ti_clk) begin
         read_last <= fifo_ren & !empty;
     end
-    always @(posedge ti_clk) begin
+    assign data_out_valid = empty;
+    always @(*) begin
         if (read_last) pipe_out = fifo_dout;
-        else pipe_out = 16'd0;
+        else pipe_out = 16'hffff;
     end
 endmodule
 

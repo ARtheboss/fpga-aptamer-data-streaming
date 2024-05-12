@@ -1,8 +1,10 @@
 #include <ostream>
 #include <iostream>
+#include <fstream>
 #include <bitset>
 #include <unordered_set>
 #include <vector>
+#include <list>
 
 #include "okFrontPanel.h"
 
@@ -16,7 +18,7 @@ void showSurroundings(vector<uint16_t>& raw, int i) {
 
 int main() {
 
-    cout << "entry" << endl;
+    std::cout << "entry" << endl;
 
     OpalKelly::FrontPanelDevices devices;
     OpalKelly::FrontPanelPtr devptr = devices.Open();
@@ -33,81 +35,74 @@ int main() {
 
 		return (1);
 	}
-    cout << "dev gotten" << endl;
 
-    //unsigned char dataout[128];
-    int i;
     long written;
     
-    error = dev->ConfigureFPGA("640kHz.bit");
-    // It’s a good idea to check for errors here!
-
-    cout << error << endl;
-    
-    /*
-    // Send brief reset signal to initialize the FIFO.
-    dev->SetWireInValue(0x10, 0xff, 0x01);
-    dev->UpdateWireIns();
-    dev->SetWireInValue(0x10, 0x00, 0x01);
-    dev->UpdateWireIns();
-    */
+    error = dev->ConfigureFPGA("./bitfiles/640kHz_counter.bit");
+    if (error > 0) {
+        printf("Error when configuring with bitfile: %d\n", error);
+        return 2;
+    }
+    printf ("Device Configuration Success.\n");
 
     vector<vector<uint16_t>> data(8, vector<uint16_t>());
-
-    uint16_t raw[1010000];
     
-   unsigned char data_in[4096];
+    std::list<uint16_t> raw;
+    
+    unsigned char data_in[4096];
 
-   bool expecting_index = true;
+    bool ready = false;
+    while (!ready) {
+        dev->UpdateTriggerOuts();
+        ready = dev->IsTriggered(0x6a, (short)1);
+    }
+
+    printf("Trigger received, fetching data.\n");
     
     int data_count = 0;
-    while (data_count < 1e6) {
-        // Read to buffer from PipeOut endpoint with address 0xA0
+    uint16_t v;
+    while (ready) {
+        dev->UpdateTriggerOuts();
         written = dev->ReadFromPipeOut(0xA0, sizeof(data_in), data_in);
         for (int i = 0; i < sizeof(data_in); i += 2) {
-            uint16_t v = (data_in[i+1] << 8) + data_in[i];
-            if (expecting_index && v == 0) continue;
-            raw[data_count] = v;
+            v = (data_in[i+1] << 8) + data_in[i];
+            if (v == 0xffff) continue; // fifo empty
+            raw.push_back(v);
             data_count++;
-            expecting_index = !expecting_index;
         }
-        //printf("%d: 0x%x%x\n", written, datain[1], datain[0]);*/
+        ready = dev->IsTriggered(0x6a, (short)1);
     }
-    cout << data_count << endl;
+    printf("Received %d words.\n");
     uint16_t index = 0;
-    bool expecting_channel = true;
     int error_count = 0;
-    for(int i = 0; i < data_count; i++){
-        if (!expecting_channel) {
-            data[index-1].push_back(raw[i]);
-        } else {
-            if (raw[i] < 1 || raw[i] > 8) {
-                // printf("Invalid channel %d at index %d\n", index, i);
-                // showSurroundings(raw, i);
-                error_count += 1;
+    auto it = raw.begin();
+    for (; it != raw.end(); ++it){
+        if (index == 0 || index > 8) {
+            if (*it != 0xfffe) {
+                error_count++;
                 continue;
+            } else {
+                index = 0;
             }
-            index = raw[i];
         }
-        expecting_channel = !expecting_channel;
+        if (index > 0) {
+            data[index-1].push_back(*it);
+        }
+        index++;
     }
-    cout << "Invalid Index Count: " << error_count << endl;
+    std::cout << "Invalid Index Count: " << error_count << endl;
     for (int i = 0; i < 8; i++) {
 	    printf("Channel %d had %d values before terminating\n", i+1, data[i].size());
     }
-    vector<int> channel_error_count(8, 0);
-    for (int c = 0; c < 8; c++) {
-        for(int i = 1; i < data[c].size(); i++){
-            if (data[c][i] != data[c][i-1] + 1) {
-                //printf("Invalid data found for channel %d, index %d: %d, should be %d\n", c, i, data[c][i], data[c][i-1] + 1);
-                //showSurroundings(data[c], i);
-                channel_error_count[c]++;
-            }
+    std::ofstream data_file;
+    data_file.open("data.csv");
+    for (int i = 0; i < data[0].size(); i++) {
+        string s = "";
+        for (int j = 0; j < 8; j++) {
+            s += to_string(data[j][i]) + ",";
         }
+        data_file << s << "\n";
     }
-    for (int i = 0; i < 8; i++) {
-	    printf("Channel %d had %d incorrect values. Error rate: %.2f\n", i+1, channel_error_count[i], (float)channel_error_count[i]/(float)data[i].size());
-    }
+    data_file.close();
     return 0;
-
 }
